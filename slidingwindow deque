@@ -1,0 +1,240 @@
+import tkinter as tk
+from tkinter import messagebox
+from tkinter import scrolledtext
+from collections import deque
+import heapq
+
+
+class Node:
+    def _init_(self, val):
+        self.val = val
+        self.left = None
+        self.right = None
+
+
+class BST:
+    def _init_(self):
+        self.root = None
+
+    def insert(self, val):
+        if self.root is None:
+            self.root = Node(val)
+        else:
+            self._insert_recursive(self.root, val)
+
+    def _insert_recursive(self, node, val):
+        if val < node.val:
+            if node.left is None:
+                node.left = Node(val)
+            else:
+                self._insert_recursive(node.left, val)
+        else:
+            if node.right is None:
+                node.right = Node(val)
+            else:
+                self._insert_recursive(node.right, val)
+
+    def remove(self, val):
+        if self.root is None:
+            return
+        self.root = self._remove_recursive(self.root, val)
+
+    def _remove_recursive(self, node, val):
+        if node is None:
+            return node
+
+        if val < node.val:
+            node.left = self._remove_recursive(node.left, val)
+        elif val > node.val:
+            node.right = self._remove_recursive(node.right, val)
+        else:
+            if node.left is None:
+                return node.right
+            elif node.right is None:
+                return node.left
+
+            min_node = self._find_min(node.right)
+            node.val = min_node.val
+            node.right = self._remove_recursive(node.right, min_node.val)
+
+        return node
+
+    def _find_min(self, node):
+        current = node
+        while current.left is not None:
+            current = current.left
+        return current
+
+    def get_max(self):
+        if self.root is None:
+            return None
+        return self._get_max_recursive(self.root)
+
+    def _get_max_recursive(self, node):
+        if node.right is None:
+            return node.val
+        return self._get_max_recursive(node.right)
+
+
+def sliding_window_max(prices, window_size):
+    max_prices_deque = deque()
+    max_prices_heap = []
+    max_prices_bst = BST()
+    max_prices = []
+
+    for i, price in enumerate(prices):
+        if i >= window_size:
+            # Remove the first element from deque if it goes out of the window
+            if max_prices_deque and max_prices_deque[0] <= i - window_size:
+                max_prices_deque.popleft()
+
+            # Remove the first element from heap if it goes out of the window
+            while max_prices_heap and max_prices_heap[0][1] <= i - window_size:
+                heapq.heappop(max_prices_heap)
+
+            # Remove the price from BST
+            max_prices_bst.remove(prices[i - window_size])
+
+        # Add the current price to deque
+        max_prices_deque.append(i)
+
+        # Add the current price to heap
+        heapq.heappush(max_prices_heap, (-price, i))
+
+        # Add the current price to BST
+        max_prices_bst.insert(price)
+
+        if i >= window_size - 1:
+            # Get the maximum price from deque
+            max_price_deque = prices[max_prices_deque[0]]
+
+            # Get the maximum price from heap
+            max_price_heap = -max_prices_heap[0][0]
+
+            # Get the maximum price from BST
+            max_price_bst = max_prices_bst.get_max()
+
+            # Choose the maximum price among deque, heap, and BST
+            max_price = max(max_price_deque, max_price_heap, max_price_bst)
+            max_prices.append(max_price)
+
+    return max_prices
+
+
+def calculate_prices():
+    try:
+        week1_prices = [float(price) for price in week1_prices_entry.get().split(',')]
+        week2_prices = [float(price) for price in week2_prices_entry.get().split(',')]
+
+        if len(week1_prices) != 7 or len(week2_prices) != 7:
+            messagebox.showerror("Error", "Invalid number of prices. Please provide exactly 7 prices for each week.")
+            return
+
+        window_size = int(window_size_entry.get())
+        if window_size > 7:
+            messagebox.showerror("Error", "Window size cannot exceed the number of prices in a week.")
+            return
+
+        max_prices_week1 = sliding_window_max(week1_prices, window_size)
+        max_prices_week2 = sliding_window_max(week2_prices, window_size)
+
+        if len(max_prices_week1) < 1 or len(max_prices_week2) < 2:
+            messagebox.showerror("Error", "Insufficient number of prices for calculating best and second best.")
+            return
+
+        max_prices_week1.sort(reverse=True)
+        max_prices_week2.sort(reverse=True)
+
+        best_price_week1 = max_prices_week1[0]
+        second_best_price_week1 = max_prices_week1[1]
+
+        best_price_week2 = max_prices_week2[0]
+        second_best_price_week2 = max_prices_week2[1]
+
+        best_price_label.config(text=f"Week 1 - Best Price: {best_price_week1}")
+        second_best_price_label.config(text=f"Week 1 - Second Best Price: {second_best_price_week1}")
+
+        best_price_label2.config(text=f"Week 2 - Best Price: {best_price_week2}")
+        second_best_price_label2.config(text=f"Week 2 - Second Best Price: {second_best_price_week2}")
+
+        if best_price_week1 > best_price_week2:
+            comparison_label.config(text="Week 1 has a higher best price than Week 2.")
+        elif best_price_week1 < best_price_week2:
+            comparison_label.config(text="Week 2 has a higher best price than Week 1.")
+        else:
+            comparison_label.config(text="Both weeks have the same best price.")
+
+        sliding_window_result_week1 = "Sliding Window Maximum Result - Week 1: "
+        sliding_window_result_week1 += ", ".join(map(str, reversed(max_prices_week1)))
+        sliding_window_result_text_week1.delete(1.0, tk.END)
+        sliding_window_result_text_week1.insert(tk.END, sliding_window_result_week1)
+
+        sliding_window_result_week2 = "Sliding Window Maximum Result - Week 2: "
+        sliding_window_result_week2 += ", ".join(map(str, max_prices_week2))
+        sliding_window_result_text_week2.delete(1.0, tk.END)
+        sliding_window_result_text_week2.insert(tk.END, sliding_window_result_week2)
+
+    except ValueError:
+        messagebox.showerror("Error", "Invalid input. Please enter numeric prices separated by commas.")
+
+
+# GUI Setup
+window = tk.Tk()
+window.title("Stock Market Price Analysis")
+window.geometry("400x600")
+
+# Prices Entry - Week 1
+week1_prices_label = tk.Label(window, text="Week 1 Prices:")
+week1_prices_label.pack()
+week1_prices_entry = tk.Entry(window)
+week1_prices_entry.pack()
+
+# Prices Entry - Week 2
+week2_prices_label = tk.Label(window, text="Week 2 Prices:")
+week2_prices_label.pack()
+week2_prices_entry = tk.Entry(window)
+week2_prices_entry.pack()
+
+# Window Size Entry
+window_size_label = tk.Label(window, text="Window Size (up to 7):")
+window_size_label.pack()
+window_size_entry = tk.Entry(window)
+window_size_entry.pack()
+
+# Calculate Prices Button
+calculate_button = tk.Button(window, text="Calculate", command=calculate_prices)
+calculate_button.pack()
+
+# Labels for Week 1
+week1_result_label = tk.Label(window, text="Week 1 Results:")
+week1_result_label.pack()
+best_price_label = tk.Label(window, text="Week 1 - Best Price:")
+best_price_label.pack()
+second_best_price_label = tk.Label(window, text="Week 1 - Second Best Price:")
+second_best_price_label.pack()
+
+# Labels for Week 2
+week2_result_label = tk.Label(window, text="Week 2 Results:")
+week2_result_label.pack()
+best_price_label2 = tk.Label(window, text="Week 2 - Best Price:")
+best_price_label2.pack()
+second_best_price_label2 = tk.Label(window, text="Week 2 - Second Best Price:")
+second_best_price_label2.pack()
+
+# Comparison Label
+comparison_label = tk.Label(window, text="")
+comparison_label.pack()
+
+# Sliding Window Maximum Result Labels and Text Boxes for Week 1
+sliding_window_result_label_week1 = tk.Label(window, text="Sliding Window Maximum Result - Week 1:")
+sliding_window_result_label_week1.pack()
+sliding_window_result_text_week1 = scrolledtext.ScrolledText(window, height=1, width=50)
+sliding_window_result_text_week1.pack()
+
+# Sliding Window Maximum Result Labels and Text Boxes for Week 2
+sliding_window_result_label_week2 = tk.Label(window, text="Sliding Window Maximum Result - Week 2:")
+sliding_window_result_label_week2.pack()
+sliding_window_result_text_week2 = scrolledtext.ScrolledText(window, height=1, width=50)
+sliding_window_result_text_week2.pack()
+
+window.mainloop()
